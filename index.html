@@ -72,32 +72,42 @@
     <div id="shade" class="shade" onclick="closeComments()"></div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, updateDoc, doc, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, updateDoc, doc, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAkFr10-xPzhZNlJwmP8a7-nHZnpdwECQ0",
-            authDomain: "ocean-s-new-artists-club.firebaseapp.com",
-            projectId: "ocean-s-new-artists-club",
-            storageBucket: "ocean-s-new-artists-club.firebasestorage.app",
-            messagingSenderId: "760339514728",
-            appId: "1:760339514728:web:69d6e778db4b92577d82dd"
-        };
+    const firebaseConfig = {
+        apiKey: "AIzaSyAkFr10-xPzhZNlJwmP8a7-nHZnpdwECQ0",
+        authDomain: "ocean-s-new-artists-club.firebaseapp.com",
+        projectId: "ocean-s-new-artists-club",
+        // VERIFIE BIEN CETTE LIGNE DANS TA CONSOLE :
+        storageBucket: "ocean-s-new-artists-club.appspot.com", 
+        messagingSenderId: "760339514728",
+        appId: "1:760339514728:web:69d6e778db4b92577d82dd"
+    };
 
+    try {
         const app = initializeApp(firebaseConfig);
         window.db = getFirestore(app);
         window.storage = getStorage(app);
-        window.fbMethods = { collection, addDoc, onSnapshot, query, orderBy, updateDoc, doc, arrayUnion, increment, ref, uploadBytes, getDownloadURL };
         
-        // Attendre que l'objet window.db soit peuplé avant de charger les posts
-        const checkFirebase = setInterval(() => {
-            if (window.db && typeof loadAllPosts === "function") {
-                loadAllPosts();
-                clearInterval(checkFirebase);
-            }
-        }, 100);
-    </script>
+        // On attache tout à window.fbMethods de façon groupée
+        window.fbMethods = { 
+            collection, addDoc, onSnapshot, query, orderBy, 
+            updateDoc, doc, arrayUnion, increment, 
+            ref, uploadBytes, getDownloadURL 
+        };
+
+        console.log("Firebase initialisé avec succès");
+
+        // Lancement du chargement
+        if (typeof loadAllPosts === "function") {
+            loadAllPosts();
+        }
+    } catch (error) {
+        console.error("Erreur d'initialisation Firebase:", error);
+    }
+</script>
     <script src="script.js"></script>
 </body>
 </html>
