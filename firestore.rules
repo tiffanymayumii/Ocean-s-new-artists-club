@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Posts collection - public read, controlled write
+    match /posts/{postId} {
+      // Anyone can read posts
+      allow read: if true;
+      
+      // Allow creation with proper data structure
+      allow create: if request.resource.data.keys().hasAll(['img', 'name', 'timestamp', 'cat', 'likes', 'comments']) 
+                    && request.resource.data.timestamp is int
+                    && request.resource.data.likes is int
+                    && request.resource.data.comments is list
+                    && request.resource.data.img is string
+                    && request.resource.data.name is string
+                    && request.resource.data.cat is string;
+      
+      // Allow updates (for likes and comments)
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+                      .hasOnly(['likes', 'comments']);
+      
+      // Prevent deletion
+      allow delete: if false;
+    }
+  }
+}
+
+
