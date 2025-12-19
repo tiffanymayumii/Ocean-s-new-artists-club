@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Océane - Art Portfolio</title>
+    <link href="https://fonts.cdnfonts.com/css/etna" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+    <div id="loader" class="loader-container">
+        <div class="stars-scattered">
+            <i class="fa-solid fa-star star" style="left:15%; top:10%;"></i>
+            <i class="fa-solid fa-star star" style="left:40%; top:30%;"></i>
+            <i class="fa-solid fa-star star" style="left:65%; top:60%;"></i>
+            <i class="fa-solid fa-star star" style="left:85%; top:20%;"></i>
+        </div>
+        <div class="loader-content">
+            <img src="logo-oceane.png" class="loader-logo">
+            <p class="loading-text">Chargement<span class="dots">...</span></p>
+        </div>
+    </div>
+
+    <div class="background-canvas"></div>
+
+    <header class="navbar">
+        <div class="nav-left">
+            <a href="javascript:location.reload();" class="nav-link-home">Accueil</a>
+            <button class="btn-nav-add" onclick="openGallery()"><i class="fa-solid fa-plus"></i></button>
+        </div>
+        <div class="nav-center">
+            <div class="category-switch">
+                <button class="switch-btn active" id="btn-digital" onclick="triggerSwitch('digital')">Digital</button>
+                <button class="switch-btn" id="btn-trad" onclick="triggerSwitch('traditionnel')">Traditionnel</button>
+            </div>
+        </div>
+        <div class="nav-right"><img src="logo-oceane.png" class="logo-rounded"></div>
+    </header>
+
+    <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleImageSelection(event)">
+
+    <main class="main-container">
+        <section id="feed-digital" class="feed-section active"></section>
+        <section id="feed-traditionnel" class="feed-section"></section>
+    </main>
+
+    <div id="publishLayer" class="full-layer-overlay">
+        <div class="publish-form-card">
+            <span class="close-publish" onclick="hidePublish()">&times;</span>
+            <h2 class="publish-title">Nouvelle Publication</h2>
+            <div id="imagePreview" class="preview-box"></div>
+            <input type="text" id="userLoc" placeholder="Lieu (ex: Paris, France)">
+            <textarea id="postText" placeholder="Écrire une description..."></textarea>
+            <div class="radio-group-container">
+                <label class="radio-option"><input type="radio" name="cat" value="digital" checked> <span>Digital</span></label>
+                <label class="radio-option"><input type="radio" name="cat" value="traditionnel"> <span>Traditionnel</span></label>
+            </div>
+            <button class="btn-send" onclick="finalizePost()">Publier la photo</button>
+        </div>
+    </div>
+
+    <div id="commentDrawer" class="drawer">
+        <div class="drawer-header">
+            <div class="handle"></div>
+            <h3>Commentaires</h3>
+            <span class="close-drawer" onclick="closeComments()">&times;</span>
+        </div>
+        <div id="commentList" class="drawer-body"></div>
+        <div class="drawer-footer">
+            <input type="text" id="comInput" placeholder="Ajouter un commentaire...">
+            <button onclick="postComment()">Publier</button>
+        </div>
+    </div>
+    <div id="shade" class="shade" onclick="closeComments()"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
