@@ -74,14 +74,11 @@
     <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, updateDoc, doc, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyAkFr10-xPzhZNlJwmP8a7-nHZnpdwECQ0",
         authDomain: "ocean-s-new-artists-club.firebaseapp.com",
         projectId: "ocean-s-new-artists-club",
-        // VERIFIE BIEN CETTE LIGNE DANS TA CONSOLE :
-        storageBucket: "ocean-s-new-artists-club.appspot.com", 
         messagingSenderId: "760339514728",
         appId: "1:760339514728:web:69d6e778db4b92577d82dd"
     };
@@ -89,13 +86,11 @@
     try {
         const app = initializeApp(firebaseConfig);
         window.db = getFirestore(app);
-        window.storage = getStorage(app);
         
         // On attache tout à window.fbMethods de façon groupée
         window.fbMethods = { 
             collection, addDoc, onSnapshot, query, orderBy, 
-            updateDoc, doc, arrayUnion, increment, 
-            ref, uploadBytes, getDownloadURL 
+            updateDoc, doc, arrayUnion, increment
         };
 
         console.log("Firebase initialisé avec succès");

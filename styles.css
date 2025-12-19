@@ -32,7 +32,9 @@ body { font-family: 'Etna', sans-serif; background: var(--bg); overflow-x: hidde
 
 .post-footer { padding: 15px; }
 .post-actions { display: flex; gap: 20px; font-size: 24px; color: var(--primary); margin-bottom: 8px; }
-.post-actions button { background: none; border: none; font-size: 24px; cursor: pointer; color: inherit; }
+.post-actions button { background: none; border: none; font-size: 24px; cursor: pointer; color: inherit; display: flex; align-items: center; gap: 6px; }
+.post-actions button i { font-size: 24px; }
+.count-text { font-size: 14px; font-weight: 600; color: var(--dark); margin-left: 2px; }
 .like-btn.is-liked i { color: #FF3131; -webkit-text-stroke: 0; }
 
 /* PUBLICATION FIXÉE */

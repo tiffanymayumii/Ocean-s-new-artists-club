@@ -4,6 +4,45 @@ let selectedImageURL = '';
 // Récupération sécurisée du profil local
 const getProfile = () => JSON.parse(localStorage.getItem('art_user_v3')) || { pseudo: "Artiste", avatar: "logo-oceane.png", uid: "guest" };
 
+// Update counts on existing post without re-rendering
+function updatePostCounts(postId, likes, comments) {
+    const postCard = document.getElementById(postId);
+    if (!postCard || postId.startsWith('def')) return;
+    
+    // Update like count
+    const likeBtn = postCard.querySelector('.like-btn');
+    if (likeBtn) {
+        let likeCountSpan = likeBtn.querySelector('.count-text');
+        if (likes > 0) {
+            if (!likeCountSpan) {
+                likeCountSpan = document.createElement('span');
+                likeCountSpan.className = 'count-text';
+                likeBtn.appendChild(likeCountSpan);
+            }
+            likeCountSpan.textContent = likes;
+        } else if (likeCountSpan) {
+            likeCountSpan.remove();
+        }
+    }
+    
+    // Update comment count
+    const commentBtn = postCard.querySelector('.post-actions button:nth-child(2)');
+    if (commentBtn) {
+        let commentCountSpan = commentBtn.querySelector('.count-text');
+        const commentCount = Array.isArray(comments) ? comments.length : 0;
+        if (commentCount > 0) {
+            if (!commentCountSpan) {
+                commentCountSpan = document.createElement('span');
+                commentCountSpan.className = 'count-text';
+                commentBtn.appendChild(commentCountSpan);
+            }
+            commentCountSpan.textContent = commentCount;
+        } else if (commentCountSpan) {
+            commentCountSpan.remove();
+        }
+    }
+}
+
 // CHARGEMENT INITIAL (4 PHOTOS PAR DÉFAUT + FIREBASE)
 function loadAllPosts() {
     const { db, fbMethods } = window;
@@ -12,21 +51,47 @@ function loadAllPosts() {
         return;
     }
 
+    // Render defaults only if feeds are empty
+    const digitalFeed = document.getElementById('feed-digital');
+    const tradFeed = document.getElementById('feed-traditionnel');
+    if (digitalFeed.children.length === 0 && tradFeed.children.length === 0) {
+        renderDefaults();
+    }
+
     const q = fbMethods.query(fbMethods.collection(db, "posts"), fbMethods.orderBy("timestamp", "desc"));
     
+    // Track which posts we've already rendered
+    const renderedPosts = new Set();
+    
     fbMethods.onSnapshot(q, (snapshot) => {
-        document.getElementById('feed-digital').innerHTML = "";
-        document.getElementById('feed-traditionnel').innerHTML = "";
-        
-        // 1. Charger les 4 photos d'origine (Statiques)
-        renderDefaults();
-
-        // 2. Charger les photos des utilisateurs en ligne (Firebase)
+        // Process Firebase posts
         snapshot.forEach((doc) => {
+            const postId = doc.id;
             const p = doc.data();
-            p.id = doc.id; 
-            displayPost(p);
+            p.id = postId;
+            if (typeof p.likes !== 'number') p.likes = 0;
+            if (!Array.isArray(p.comments)) p.comments = [];
+            
+            const existingCard = document.getElementById(postId);
+            if (existingCard) {
+                // Update existing post counts
+                updatePostCounts(postId, p.likes, p.comments);
+            } else {
+                // New post, render it
+                displayPost(p);
+            }
+            renderedPosts.add(postId);
         });
+        
+        // Remove posts that were deleted from Firebase (but keep defaults)
+        document.querySelectorAll('.post-card').forEach(card => {
+            const cardId = card.id;
+            if (!cardId.startsWith('def') && !renderedPosts.has(cardId)) {
+                card.remove();
+            }
+        });
+        
+        renderedPosts.clear();
     }, (error) => {
         console.error("Erreur de lecture Firestore (vérifiez vos règles) :", error);
     });
@@ -34,10 +99,10 @@ function loadAllPosts() {
 
 function renderDefaults() {
     const defaults = [
-        { id: 'def1', cat: 'digital', img: 'digital1.jpg', name: 'Océane_Digital', loc: 'Paris', desc: 'Mon premier digital art.' },
-        { id: 'def2', cat: 'digital', img: 'digital2.jpg', name: 'Océane_Digital', loc: 'Suisse', desc: 'Concept.' },
-        { id: 'def3', cat: 'traditionnel', img: 'trad1.jpg', name: 'Océane_Trad', loc: 'Atelier', desc: 'Aquarelle fleurs.' },
-        { id: 'def4', cat: 'traditionnel', img: 'trad2.jpg', name: 'Océane_Trad', loc: 'Lyon', desc: 'Portrait fusain.' }
+        { id: 'def1', cat: 'digital', img: 'digital1.jpg', name: 'Océane_Digital', loc: 'Paris', desc: 'Mon premier digital art.', likes: 12, comments: [] },
+        { id: 'def2', cat: 'digital', img: 'digital2.jpg', name: 'Océane_Digital', loc: 'Suisse', desc: 'Concept.', likes: 8, comments: [] },
+        { id: 'def3', cat: 'traditionnel', img: 'trad1.jpg', name: 'Océane_Trad', loc: 'Atelier', desc: 'Aquarelle fleurs.', likes: 15, comments: [] },
+        { id: 'def4', cat: 'traditionnel', img: 'trad2.jpg', name: 'Océane_Trad', loc: 'Lyon', desc: 'Portrait fusain.', likes: 9, comments: [] }
     ];
     defaults.forEach(p => displayPost(p));
 }
@@ -45,6 +110,11 @@ function renderDefaults() {
 function displayPost(p) {
     const feed = document.getElementById('feed-' + p.cat);
     if (!feed) return;
+
+    const likeCount = p.likes || 0;
+    const commentCount = (p.comments && Array.isArray(p.comments)) ? p.comments.length : 0;
+    const likeCountText = likeCount > 0 ? `<span class="count-text">${likeCount}</span>` : '';
+    const commentCountText = commentCount > 0 ? `<span class="count-text">${commentCount}</span>` : '';
 
     const html = `
     <div class="post-card" id="${p.id}">
@@ -55,8 +125,14 @@ function displayPost(p) {
         </div>
         <div class="post-footer">
             <div class="post-actions">
-                <button class="like-btn" onclick="toggleLike('${p.id}')"><i class="fa-solid fa-heart"></i></button>
-                <button onclick="openComments('${p.id}')"><i class="fa-regular fa-comment"></i></button>
+                <button class="like-btn" onclick="toggleLike('${p.id}')">
+                    <i class="fa-solid fa-heart"></i>
+                    ${likeCountText}
+                </button>
+                <button onclick="openComments('${p.id}')">
+                    <i class="fa-regular fa-comment"></i>
+                    ${commentCountText}
+                </button>
                 <button onclick="sharePost('${p.name}', '${p.desc}')"><i class="fa-regular fa-paper-plane"></i></button>
             </div>
             <p><strong>${p.name}</strong> ${p.desc}</p>
@@ -65,27 +141,40 @@ function displayPost(p) {
     feed.insertAdjacentHTML('beforeend', html);
 }
 
+// Convert file to base64 (simple, no CORS issues)
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
 // ACTIONS FIREBASE
 async function finalizePost() {
-    const { db, storage, fbMethods } = window;
+    const { db, fbMethods } = window;
     const file = document.getElementById('imageInput').files[0];
     const user = getProfile();
 
     if(!file) return alert("Veuillez choisir une photo !");
+
+    // Check file size (Firestore limit is 1MB per field, but we'll allow up to 800KB for safety)
+    if (file.size > 800 * 1024) {
+        return alert("L'image est trop grande ! Veuillez choisir une image de moins de 800KB.");
+    }
 
     const btn = document.getElementById('btnFinalPublish');
     btn.disabled = true; 
     btn.innerText = "Envoi en cours...";
 
     try {
-        // Envoi Image
-        const storageRef = fbMethods.ref(storage, 'posts/' + Date.now() + "_" + file.name);
-        const snapshot = await fbMethods.uploadBytes(storageRef, file);
-        const downloadURL = await fbMethods.getDownloadURL(snapshot.ref);
+        // Convert image to base64 (no CORS issues!)
+        const base64Image = await fileToBase64(file);
 
-        // Enregistrement Firestore
+        // Enregistrement Firestore (image stored as base64)
         await fbMethods.addDoc(fbMethods.collection(db, "posts"), {
-            img: downloadURL, 
+            img: base64Image, 
             name: user.pseudo, 
             avatar: user.avatar,
             uid: user.uid,
@@ -100,7 +189,7 @@ async function finalizePost() {
         hidePublish();
         triggerSwitch(document.querySelector('input[name="cat"]:checked').value);
     } catch (e) { 
-        console.error("Erreur d'envoi (vérifiez CORS et les règles Storage) :", e);
+        console.error("Erreur d'envoi :", e);
         alert("Erreur d'envoi : " + e.message); 
     } finally {
         btn.disabled = false; 
@@ -109,13 +198,27 @@ async function finalizePost() {
 }
 
 async function toggleLike(postId) {
-    if(postId.startsWith('def')) return document.getElementById(postId).querySelector('.like-btn').classList.toggle('is-liked');
+    if(postId.startsWith('def')) {
+        const btn = document.getElementById(postId).querySelector('.like-btn');
+        const isLiked = btn.classList.contains('is-liked');
+        btn.classList.toggle('is-liked');
+        
+        // Update default post like count
+        const countSpan = btn.querySelector('.count-text');
+        if (countSpan) {
+            const currentCount = parseInt(countSpan.textContent) || 0;
+            countSpan.textContent = isLiked ? Math.max(0, currentCount - 1) : currentCount + 1;
+            if (parseInt(countSpan.textContent) === 0) countSpan.remove();
+        }
+        return;
+    }
     
     const { db, fbMethods } = window;
     const postRef = fbMethods.doc(db, "posts", postId);
     try {
         await fbMethods.updateDoc(postRef, { likes: fbMethods.increment(1) });
         document.getElementById(postId).querySelector('.like-btn').classList.add('is-liked');
+        // Count will update automatically via onSnapshot
     } catch (e) { console.error("Erreur like:", e); }
 }
 
@@ -181,11 +284,31 @@ function openComments(id) {
     if(!id.startsWith('def')) {
         footer.style.display = "flex";
         const { db, fbMethods } = window;
-        fbMethods.onSnapshot(fbMethods.doc(db, "posts", id), (doc) => {
+        const unsubscribe = fbMethods.onSnapshot(fbMethods.doc(db, "posts", id), (doc) => {
             const list = document.getElementById('commentList');
             list.innerHTML = "";
             const data = doc.data();
-            if(data && data.comments) {
+            
+            // Update comment count in the post card
+            const postCard = document.getElementById(id);
+            if (postCard && data) {
+                const commentBtn = postCard.querySelector('.post-actions button:nth-child(2)');
+                const commentCount = (data.comments && Array.isArray(data.comments)) ? data.comments.length : 0;
+                let countSpan = commentBtn.querySelector('.count-text');
+                
+                if (commentCount > 0) {
+                    if (!countSpan) {
+                        countSpan = document.createElement('span');
+                        countSpan.className = 'count-text';
+                        commentBtn.appendChild(countSpan);
+                    }
+                    countSpan.textContent = commentCount;
+                } else if (countSpan) {
+                    countSpan.remove();
+                }
+            }
+            
+            if(data && data.comments && data.comments.length > 0) {
                 data.comments.forEach(c => {
                     list.innerHTML += `
                     <div style="margin-bottom:15px; display:flex; gap:10px;">
@@ -195,8 +318,13 @@ function openComments(id) {
                         </div>
                     </div>`;
                 });
+            } else {
+                list.innerHTML = "<p style='padding:20px; text-align:center; color:gray'>Aucun commentaire pour le moment.</p>";
             }
         });
+        
+        // Store unsubscribe function for cleanup if needed
+        window.currentCommentUnsubscribe = unsubscribe;
     } else {
         footer.style.display = "none";
         document.getElementById('commentList').innerHTML = "<p style='padding:20px; text-align:center; color:gray'>Les commentaires sont désactivés pour cette photo de démonstration.</p>";
