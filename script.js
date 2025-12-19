@@ -1,10 +1,16 @@
 let currentPostId = '';
 let selectedImageURL = '';
 
+// Récupération sécurisée du profil local
+const getProfile = () => JSON.parse(localStorage.getItem('art_user_v3')) || { pseudo: "Artiste", avatar: "logo-oceane.png", uid: "guest" };
+
 // CHARGEMENT INITIAL (4 PHOTOS PAR DÉFAUT + FIREBASE)
 function loadAllPosts() {
     const { db, fbMethods } = window;
-    if (!db || !fbMethods) return;
+    if (!db || !fbMethods) {
+        console.error("Firebase n'est pas prêt.");
+        return;
+    }
 
     const q = fbMethods.query(fbMethods.collection(db, "posts"), fbMethods.orderBy("timestamp", "desc"));
     
@@ -18,9 +24,11 @@ function loadAllPosts() {
         // 2. Charger les photos des utilisateurs en ligne (Firebase)
         snapshot.forEach((doc) => {
             const p = doc.data();
-            p.id = doc.id; // Récupération de l'ID Firebase
+            p.id = doc.id; 
             displayPost(p);
         });
+    }, (error) => {
+        console.error("Erreur de lecture Firestore (vérifiez vos règles) :", error);
     });
 }
 
@@ -40,7 +48,7 @@ function displayPost(p) {
 
     const html = `
     <div class="post-card" id="${p.id}">
-        <div class="post-header"><img src="logo-oceane.png" class="user-avatar"><div><strong>${p.name}</strong><br><small>${p.loc}</small></div></div>
+        <div class="post-header"><img src="${p.avatar || 'logo-oceane.png'}" class="user-avatar"><div><strong>${p.name}</strong><br><small>${p.loc}</small></div></div>
         <div class="post-media-box" ondblclick="doubleClickLike('${p.id}')">
             <i class="fa-solid fa-heart like-animation"></i>
             <img src="${p.img}">
@@ -61,22 +69,26 @@ function displayPost(p) {
 async function finalizePost() {
     const { db, storage, fbMethods } = window;
     const file = document.getElementById('imageInput').files[0];
+    const user = getProfile();
+
     if(!file) return alert("Veuillez choisir une photo !");
 
     const btn = document.getElementById('btnFinalPublish');
     btn.disabled = true; 
-    btn.innerText = "Chargement...";
+    btn.innerText = "Envoi en cours...";
 
     try {
+        // Envoi Image
         const storageRef = fbMethods.ref(storage, 'posts/' + Date.now() + "_" + file.name);
         const snapshot = await fbMethods.uploadBytes(storageRef, file);
         const downloadURL = await fbMethods.getDownloadURL(snapshot.ref);
 
-        // AJOUT DU CHAMP COMMENTS VIDE PAR DÉFAUT
+        // Enregistrement Firestore
         await fbMethods.addDoc(fbMethods.collection(db, "posts"), {
             img: downloadURL, 
-            name: "Artiste", 
-            avatar: "logo-oceane.png",
+            name: user.pseudo, 
+            avatar: user.avatar,
+            uid: user.uid,
             loc: document.getElementById('userLoc').value || "Ma Ville",
             desc: document.getElementById('postText').value || "",
             cat: document.querySelector('input[name="cat"]:checked').value,
@@ -88,8 +100,8 @@ async function finalizePost() {
         hidePublish();
         triggerSwitch(document.querySelector('input[name="cat"]:checked').value);
     } catch (e) { 
-        console.error(e);
-        alert("Erreur d'envoi."); 
+        console.error("Erreur d'envoi (vérifiez CORS et les règles Storage) :", e);
+        alert("Erreur d'envoi : " + e.message); 
     } finally {
         btn.disabled = false; 
         btn.innerText = "Publier la photo";
@@ -107,24 +119,21 @@ async function toggleLike(postId) {
     } catch (e) { console.error("Erreur like:", e); }
 }
 
-// FONCTION COMMENTAIRE CORRIGÉE
 async function postComment() {
     const { db, fbMethods } = window;
     const val = document.getElementById('comInput').value;
+    const user = getProfile();
     
     if(!val) return;
-    if(currentPostId.startsWith('def')) {
-        alert("Les commentaires ne sont pas activés sur les photos de démonstration.");
-        return;
-    }
+    if(currentPostId.startsWith('def')) return;
 
     try {
         const postRef = fbMethods.doc(db, "posts", currentPostId);
         await fbMethods.updateDoc(postRef, {
             comments: fbMethods.arrayUnion({ 
-                user: "Moi", 
+                user: user.pseudo, 
                 text: val, 
-                avatar: "logo-oceane.png",
+                avatar: user.avatar,
                 date: Date.now()
             })
         });
@@ -140,13 +149,17 @@ function openGallery() { document.getElementById('imageInput').click(); }
 
 function handleImageSelection(e) { 
     if(e.target.files[0]) {
+        if(selectedImageURL) URL.revokeObjectURL(selectedImageURL);
         selectedImageURL = URL.createObjectURL(e.target.files[0]);
         document.getElementById('imagePreview').innerHTML = `<img src="${selectedImageURL}">`;
         document.getElementById('publishLayer').style.display = 'flex';
     }
 }
 
-function hidePublish() { document.getElementById('publishLayer').style.display = 'none'; }
+function hidePublish() { 
+    document.getElementById('publishLayer').style.display = 'none';
+    if(selectedImageURL) URL.revokeObjectURL(selectedImageURL);
+}
 
 function doubleClickLike(id) {
     const heart = document.getElementById(id).querySelector('.like-animation');
@@ -159,10 +172,14 @@ function doubleClickLike(id) {
 
 function openComments(id) {
     currentPostId = id;
-    document.getElementById('commentDrawer').classList.add('active');
+    const drawer = document.getElementById('commentDrawer');
+    const footer = drawer.querySelector('.drawer-footer');
+    
+    drawer.classList.add('active');
     document.getElementById('shade').style.display = 'block';
     
     if(!id.startsWith('def')) {
+        footer.style.display = "flex";
         const { db, fbMethods } = window;
         fbMethods.onSnapshot(fbMethods.doc(db, "posts", id), (doc) => {
             const list = document.getElementById('commentList');
@@ -172,7 +189,7 @@ function openComments(id) {
                 data.comments.forEach(c => {
                     list.innerHTML += `
                     <div style="margin-bottom:15px; display:flex; gap:10px;">
-                        <img src="${c.avatar}" style="width:30px;height:30px;border-radius:50%">
+                        <img src="${c.avatar || 'logo-oceane.png'}" style="width:30px;height:30px;border-radius:50%">
                         <div style="background:#f1f1f1;padding:10px;border-radius:15px;flex:1">
                             <strong>${c.user}</strong>: ${c.text}
                         </div>
@@ -181,7 +198,8 @@ function openComments(id) {
             }
         });
     } else {
-        document.getElementById('commentList').innerHTML = "<p style='padding:20px; color:gray'>Commentaires désactivés pour la démo.</p>";
+        footer.style.display = "none";
+        document.getElementById('commentList').innerHTML = "<p style='padding:20px; text-align:center; color:gray'>Les commentaires sont désactivés pour cette photo de démonstration.</p>";
     }
 }
 
